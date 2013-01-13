@@ -1,0 +1,78 @@
+#!/bin/bash
+#===============================================================================
+#
+#          FILE: asmcheck.sh
+#
+#         USAGE: ./asmcheck.sh (in crontab)
+#
+#   DESCRIPTION: Checks Oracle for new oracleasm rpms, updates the repo if any
+#                are found, and removes old version
+#
+#       OPTIONS: ---
+#  REQUIREMENTS: ---
+#          BUGS: ---
+#
+#  ORGANIZATION: ---
+#       CREATED: ---
+#      REVISION: ---
+#===============================================================================
+
+asmcheck=<%= scope.lookupvar('asmcheck::log') %>
+asm_repo=<%= scope.lookupvar('asmcheck::asm_repo') %>
+
+rpmversionstokeep=<%= scope.lookupvar('asmcheck::rpmversionstokeep') %>  
+
+# powerpath rpm is excluded from removal
+powerpath_kernel=oracleasm-<%= scope.lookupvar('asmcheck::powerpath_kernel') %>
+
+# get and update the repo
+checkpkg()
+{
+  pkgver=`echo $1 | tr '/' '\n' | tail -1`
+  if [ ! -e $asm_repo/$pkgver ]
+  then
+    wget -q -O $asm_repo/$pkgver $1 
+
+	# keep multiple versions of each oracleasm rpms as a just-in-case for downgrading
+	#ex: if we have 3 rpms, and we want to keep 2, 3-2=1, so remove the first (oldest) rpm in the sorted list
+	rpms=`ls $asm_repo/ | grep -v "$powerpath_kernel" | grep $( echo $pkgver | cut -b1-11 ) | sort -t. -k 2,2n -k 3,3n -k 4,4n -k 5,5n -k 6,6n -k 7,7n -k 8,8n -k 9,9n | tr '\n' ';'`
+
+	oldest=$( echo "$(echo $rpms | tr ';' '\n' | grep -v "^$" | wc -l)-$rpmversionstokeep" | bc )
+
+	if [ $oldest -le 0 ]
+	then 	
+	  echo "$pkgver is at the minimum number of RPMs to keep ($rpmversionstokeep)"
+	else	
+	  for i in `echo $rpms | tr ';' '\n' | head -$oldest`
+	  do	
+		rm -f $asm_repo/$i
+		echo "Removed $i"
+	  done
+	fi
+	
+	/usr/bin/createrepo --update $asm_repo/
+	(
+	echo "Subject: oracleasm rpm updated" 
+	echo "To: <%= scope.lookupvar('asmcheck::mailto') %>"
+	echo "Updated asmrepo to $pkgver"
+	) | /usr/sbin/sendmail -t
+	
+	else 	echo $pkgver is already up to date
+	fi
+}
+
+# wget oracle's asm page
+wget -q -O $log http://www.oracle.com/technetwork/server-storage/linux/downloads/rhel5-084877.html#oracleasm_rhel5_amd64
+
+
+# check oracleasm-support
+checkpkg `cat $log | tr '\>' '\n' | grep "oracleasm-support" | grep x86_64 | head -1 | tr ' ' '\n' | grep href | awk -F\" '{print $2}'`
+
+# check oracleasmlib
+checkpkg `cat $log | tr '\>' '\n' | grep oracleasmlib | grep x86_64 | tr ' ' '\n' | grep href | awk -F\" '{print $2}'`
+
+# check oracleasm-<kernel>.x86_64 rpm
+checkpkg `cat $log | tr '\>' '\n' | grep "oracleasm-"[0-9] | egrep -v "xen|debug" | grep x86_64 | head -1 | tr ' ' '\n' | grep href | awk -F\" '{print $2}'`
+
+# check powerpath oracleasm-<kernel>.x86_64 rpm
+checkpkg `cat $log | tr '\>' '\n' | grep "$powerpathversion" | egrep -v "xen|debug" | grep x86_64 | head -1 | tr ' ' '\n' | grep href | awk -F\" '{print $2}'`
