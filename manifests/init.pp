@@ -18,7 +18,7 @@ class asmcheck
   $log               = $asmcheck::params::log,
   $mailto            = $asmcheck::params::mailto,
   $powerpath_kernel  = $asmcheck::params::powerpath_kernel,
-  $rpmversionstokeep = $asmcheck::params::rpmversionstokeep,
+  $previous_rpms     = $asmcheck::params::previous_rpms,
 
 ) inherits asmcheck::params
 {

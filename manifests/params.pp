@@ -7,5 +7,5 @@ class asmcheck::params
   $log               = '/tmp/asmcheck.log'
   $mailto            = 'linuxgurus@host.com'
   $powerpath_kernel  = '2.6.blah'
-  $rpmversionstokeep = '3'
+  $previous_rpms     = '2'
 }
