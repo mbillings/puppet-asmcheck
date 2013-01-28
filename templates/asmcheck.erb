@@ -38,7 +38,7 @@ checkpkg()
 
 	# keep multiple versions of each oracleasm rpms as a just-in-case for downgrading
 	#ex: if we have 3 rpms, and we want to keep 2, 3-2=1, so remove the first (oldest) rpm in the sorted list
-	rpms=`ls $asm_repo/ | grep -v "$powerpath_kernel" | grep $( echo $pkgver | cut -b1-11 ) | grep -v $pkgver | sort -t. -k 5,5n -k 4,4n -k 3,3n -k 2,2n | tr '\n' ';'`
+	rpms=`ls $asm_repo/ | grep -v "$powerpath_kernel" | grep "oracleasm-"[0-9] | grep -v $pkgver | sort -n | tr '\n' ';'`
 
 	oldest=$( echo "$(echo $rpms | tr ';' '\n' | grep -v "^$" | wc -l)-$previous_rpms" | bc )
 
